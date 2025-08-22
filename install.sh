@@ -398,3 +398,154 @@ ssh-keygen -t ed25519 -C "dev1@hostingcontroller.com" -f /srv/cannons.dev/ssh/st
 cd /srv/cannons.dev/repo
 GIT_SSH_COMMAND="ssh -i  /srv/cannons.dev/ssh/static -o StrictHostKeyChecking=no" git clone git@github.com:canonicalapp/www.git
 
+# ========================================= xdoc(xdoc-db-1) ===========================================
+mkdir /srv/xdoc
+mkdir /srv/xdoc/prod
+mkdir /srv/xdoc/repo
+mkdir /srv/xdoc/conf
+mkdir /srv/xdoc/rbck
+mkdir /srv/xdoc/scripts
+mkdir /srv/xdoc/ssh
+
+# - if new server...
+ssh-keygen -t ed25519 -C "dev1@hostingcontroller.com" -f /srv/xdoc/ssh/xdoc_db -N ""
+#otherwise use existing key
+
+sudo chmod 600 /srv/xdoc/ssh/xdoc_db
+
+#other block ends
+
+cd /srv/xdoc/repo
+GIT_SSH_COMMAND="ssh -i /srv/xdoc/ssh/xdoc_db -o StrictHostKeyChecking=no" git clone git@github.com:xdocapp/db.git
+* * * * * /bin/bash /srv/scripts/pg_deploy_with_update.sh /srv/xdoc/backup/pg /srv/xdoc/repo/db /srv/xdoc/ssh/xdoc_db xdoc xdoc 10001 >> /tmp/cronjob.log 2>&1
+
+
+sudo /srv/scripts/gen_sscertificate.sh 95.216.189.60
+
+#mtddlookup container... (should be on first server)
+### podman rm -f mtdd-lookup-service 
+
+podman run -d --name mtdd-lookup-service \
+  --label io.containers.autoupdate=local \
+  -p 50054:50054 \
+  -e GRPC_PORT=50054 \
+  -e 'DB_CONFIG={"type":"postgres","host":"/var/run/postgresql","user":"xdoc","database":"xdoc"}' \
+  -e BACKEND_SERVERS=95.216.189.60 \
+  -v pg-run-volume:/var/run/postgresql \
+  docker.io/syednhashmi/mtddlookup:latest
+
+sudo /srv/scripts/nginx_grpc_proxy_container.sh 95.216.189.60 mtddlookup 50054
+
+
+
+#mtdd container...
+### podman rm -f mtdd-service
+
+podman run -d --name mtdd-service \
+  --label io.containers.autoupdate=local \
+  -p 50051:50051 \
+  -e 'DB_CONFIG={"type":"postgres","host":"/var/run/postgresql","user":"xdoc","database":"xdoc"}' \
+  -e USER_UID=10001 \
+  -e USER_NAME=xdoc \
+  -v pg-run-volume:/var/run/postgresql \
+  docker.io/syednhashmi/mtdd:latest
+
+##sudo /srv/scripts/nginx_grpc_proxy_container.sh 95.216.189.60 mtdd 50051
+sudo /srv/scripts/nginx_grpc_proxy_container.sh 95.216.189.60 DB.DBService 50051
+#-----------------------xdoc Gateway server-----------------------------------#
+
+# install NGINX...
+mkdir /srv/scripts
+nano /srv/scripts/install_nginx_podman.sh #place the content from the mentioned file...
+chmod +x /srv/scripts/install_nginx_podman.sh
+/srv/scripts/install_nginx_podman.sh
+
+mkdir /uploads
+
+
+### podman rm -f xdoc-api
+podman pull docker.io/chishtiaq422/xdoc-api:latest
+podman run -d \
+  --name xdoc-api \
+  -e NODE_ENV=production \
+  -e 'DB_CONFIG={}' \
+  -e 'BACKEND_SERVERS=95.216.189.60' \
+-e 'LOOKUP_SERVER=95.216.189.60' \
+  -p 3000:3000 \
+  -v pg-run-volume:/var/run/postgresql \
+  -v /uploads:/app/uploads \
+  docker.io/chishtiaq422/xdoc-api
+
+
+  mkdir ~/.aws
+  nano ~/.aws/credentials
+  /srv/scripts/gen_cert_aws.sh api.xdoc.app dev1@hostingcontroller.com
+sudo ./add_reverse_proxy.sh api.xdoc.app 3000
+
+# ========================================= xdoc-spa ===========================================
+# install NGINX...
+mkdir /srv/scripts
+nano /srv/scripts/install_nginx_podman.sh #place the content from the mentioned file...
+
+chmod +x /srv/scripts/install_nginx_podman.sh
+/srv/scripts/install_nginx_podman.sh
+
+nano  /srv/scripts/gen_cert_aws.sh
+chmod +x /srv/scripts/gen_cert_aws.sh
+
+
+podman pull docker.io/syednhashmi/xdoc-web:latest
+podman run -d --name xdoc-web --label io.containers.autoupdate=local -v /var/www/html-podman/xdoc-web:/var/www/html-podman/xdoc-web docker.io/syednhashmi/xdoc-web:latest
+
+  mkdir ~/.aws
+  nano ~/.aws/credentials
+/srv/scripts/gen_cert_aws.sh web.xdoc.app dev1@hostingcontroller.com
+nano /srv/scripts/deploy_static_nginx_podman.sh
+chmod +x /srv/scripts/deploy_static_nginx_podman.sh
+
+/srv/scripts/deploy_static_nginx_podman.sh web.xdoc.app xdoc-web
+# =================================================================================================================
+
+#--------------------------------xdoc-static-----------------------------------
+# install NGINX...
+mkdir /srv/scripts
+nano /srv/scripts/install_nginx_podman.sh #place the content from the mentioned file...
+chmod +x /srv/scripts/install_nginx_podman.sh
+/srv/scripts/install_nginx_podman.sh
+
+nano /srv/scripts/add_reverse_proxy.sh
+chmod +x /srv/scripts/add_reverse_proxy.sh
+
+nano  /srv/scripts/gen_cert_aws.sh
+chmod +x /srv/scripts/gen_cert_aws.sh
+
+### podman rm -f xdoc-static
+podman run -d \
+  --name xdoc-static \
+  --label io.containers.autoupdate=local \
+  -e NODE_ENV=production \
+  -p 3000:3000 \
+   docker.io/syednhashmi/xdoc-static
+
+
+  mkdir ~/.aws
+  nano ~/.aws/credentials
+  /srv/scripts/gen_cert_aws.sh t.xdoc.app dev1@hostingcontroller.com
+sudo /srv/scripts/add_reverse_proxy.sh t.xdoc.app 3000
+
+#======================Installers=========================
+mkdir ~/.aws
+  nano ~/.aws/credentials
+  /srv/scripts/gen_cert_aws.sh installers.xdoc.app dev1@hostingcontroller.com
+
+
+mkdir -p /srv/xdoc/installers/{windows,macos,linux,android}
+nano /srv/scripts/deploy_installer_nginx_podman.sh
+chmod +x /srv/scripts/deploy_installer_nginx_podman.sh
+
+ 
+/srv/scripts/deploy_installer_nginx_podman.sh installers.xdoc.app /srv/xdoc/installers
+
+
+#whenever wants to update the installer ftp to server  place file and then run this
+sudo cp -r /srv/xdoc/installers/* /var/www/html-podman/installers/ && sudo podman exec nginx-server nginx -s reload

@@ -46,7 +46,10 @@ fi
 echo "Requesting SSL certificate for $WILDCARD_DOMAIN and $DOMAIN..."
 sudo certbot certonly --dns-route53 \
     -d "$WILDCARD_DOMAIN" -d "$DOMAIN" \
-    --non-interactive --agree-tos --email your-email@example.com
+    --non-interactive --agree-tos --email dev1@hostingcontroller.com \
+    --config-dir /etc/nginx-podman/ssl \
+    --work-dir /var/lib/letsencrypt \
+    --logs-dir /var/log/letsencrypt
 
 # Check if certificate was generated
 if [ -d "$CERTBOT_DIR" ]; then

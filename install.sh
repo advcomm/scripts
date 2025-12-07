@@ -147,7 +147,8 @@ ssh-keygen -t ed25519 -C "dev1@hostingcontroller.com" -f /srv/mnmserver/ssh/mnms
 cd /srv/mnmserver/repo
 GIT_SSH_COMMAND="ssh -i /srv/mnmserver/ssh/mnmserver -o StrictHostKeyChecking=no" git clone git@github.com:MnMsys/mnmserver-prod.git
 
-/srv/scripts/update_fetch_pm2.sh /srv/mnmserver/backup /srv/mnmserver/repo/mnmserver-prod /srv/mnmserver/ssh/mnmserver mnmserver
+* * * * * /bin/bash /srv/scripts/update_fetch_pm2.sh /srv/mnmserver/backup /srv/mnmserver/repo/mnmserver-prod /srv/mnmserver/ssh/mnmserver mnmserver  >> /tmp/cronjob.log 2>&1
+
 /srv/scripts/nginx_ssl_websocket.sh mnms.io mnmserver 9512
 
 # ========================================== 3ulogging ==========================================
@@ -335,6 +336,8 @@ GIT_SSH_COMMAND="ssh -i /srv/xdoc/ssh/xdocdb -o StrictHostKeyChecking=no" git cl
 * * * * * /bin/bash  /srv/scripts/update_db.sh  /srv/xdoc/backup/mysql /srv/xdoc/repo/db   /srv/xdoc/ssh/xdocdb xdoc >> /tmp/cronjob.log 2>&1
 
 
+
+
 # ========================================= xdocgui ===========================================
 mkdir /srv/xdocgui
 mkdir /srv/xdocgui/prod
@@ -364,6 +367,7 @@ GIT_SSH_COMMAND="ssh -i /srv/xdocgui/ssh/xdocgui -o StrictHostKeyChecking=no" gi
 
 
 # ========================================= uids ===========================================
+
 mkdir /srv/uids
 mkdir /srv/uids/prod
 mkdir /srv/uids/repo
@@ -399,25 +403,14 @@ cd /srv/cannons.dev/repo
 GIT_SSH_COMMAND="ssh -i  /srv/cannons.dev/ssh/static -o StrictHostKeyChecking=no" git clone git@github.com:canonicalapp/www.git
 
 # ========================================= xdoc(xdoc-db-1) ===========================================
-mkdir /srv/xdoc
-mkdir /srv/xdoc/prod
-mkdir /srv/xdoc/repo
-mkdir /srv/xdoc/conf
-mkdir /srv/xdoc/rbck
-mkdir /srv/xdoc/scripts
-mkdir /srv/xdoc/ssh
-
-# - if new server...
-ssh-keygen -t ed25519 -C "dev1@hostingcontroller.com" -f /srv/xdoc/ssh/xdoc_db -N ""
-#otherwise use existing key
-
-sudo chmod 600 /srv/xdoc/ssh/xdoc_db
+chmod +x create_directories.sh
+./create_directories.sh xdoc 'ssh-ed25519 <private-key>' git@github.com:xdocapp/db.git
 
 #other block ends
 
 cd /srv/xdoc/repo
-GIT_SSH_COMMAND="ssh -i /srv/xdoc/ssh/xdoc_db -o StrictHostKeyChecking=no" git clone git@github.com:xdocapp/db.git
-* * * * * /bin/bash /srv/scripts/pg_deploy_with_update.sh /srv/xdoc/backup/pg /srv/xdoc/repo/db /srv/xdoc/ssh/xdoc_db xdoc xdoc 10001 >> /tmp/cronjob.log 2>&1
+GIT_SSH_COMMAND="ssh -i /srv/xdoc/ssh/xdoc -o StrictHostKeyChecking=no" git clone git@github.com:xdocapp/db.git
+* * * * * /bin/bash /srv/scripts/pg_deploy_with_update.sh /srv/xdoc/backup/pg /srv/xdoc/repo/db /srv/xdoc/ssh/xdoc xdoc xdoc 10001 >> /tmp/cronjob.log 2>&1
 
 
 sudo /srv/scripts/gen_sscertificate.sh 95.216.189.60
@@ -477,8 +470,10 @@ podman run -d \
   docker.io/chishtiaq422/xdoc-api
 
 
-  mkdir ~/.aws
-  nano ~/.aws/credentials
+  # mkdir ~/.aws
+  # nano ~/.aws/credentials
+
+  add add_aws_credentials.sh <accesskey> <secretkey>
   /srv/scripts/gen_cert_aws.sh api.xdoc.app dev1@hostingcontroller.com
 sudo ./add_reverse_proxy.sh api.xdoc.app 3000
 
@@ -549,3 +544,14 @@ chmod +x /srv/scripts/deploy_installer_nginx_podman.sh
 
 #whenever wants to update the installer ftp to server  place file and then run this
 sudo cp -r /srv/xdoc/installers/* /var/www/html-podman/installers/ && sudo podman exec nginx-server nginx -s reload
+
+
+# ============================================== NPM Registry ============================================
+
+mkdir /srv/npmregistry
+mkdir /srv/npmregistry/prod
+mkdir /srv/npmregistry/repo
+mkdir /srv/npmregistry/conf
+mkdir /srv/npmregistry/rbck
+mkdir /srv/npmregistry/scripts
+mkdir /srv/npmregistry/ssh

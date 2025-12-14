@@ -1,0 +1,123 @@
+// MnMs.io Polkit Rules - NetOps Role
+// File: /etc/polkit-1/rules.d/20-mnm-netops.rules
+//
+// NetOps have access to:
+// - IP tables and firewall rules
+// - Inter-machine/cluster networking
+// - Backend/frontend server configurations
+// - DNS configuration
+// - Network monitoring
+
+polkit.addRule(function(action, subject) {
+    var mnm = polkit._mnm;
+    
+    // Only applies to NetOps role
+    if (!mnm.hasRole(subject, "netops")) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    
+    // =========================================================================
+    // FIREWALL MANAGEMENT (firewalld)
+    // =========================================================================
+    
+    if (action.id.indexOf("org.fedoraproject.FirewallD1.") === 0) {
+        // NetOps can read firewall configuration
+        if (action.id.indexOf(".query") !== -1 || 
+            action.id.indexOf(".get") !== -1 ||
+            action.id.indexOf(".list") !== -1) {
+            return polkit.Result.YES;
+        }
+        
+        // NetOps can modify firewall rules
+        if (action.id.indexOf(".config.") !== -1 ||
+            action.id.indexOf(".zone.") !== -1 ||
+            action.id.indexOf(".policy.") !== -1) {
+            mnm.log("NetOps " + subject.user + " modifying firewall: " + action.id);
+            return polkit.Result.AUTH_ADMIN_KEEP;  // Require confirmation
+        }
+    }
+    
+    // =========================================================================
+    // NETWORK MANAGER
+    // =========================================================================
+    
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0) {
+        // NetOps can read network state
+        if (action.id.indexOf(".status") !== -1 ||
+            action.id.indexOf(".statistics") !== -1) {
+            return polkit.Result.YES;
+        }
+        
+        // NetOps can manage network connections
+        if (action.id === "org.freedesktop.NetworkManager.settings.modify.system" ||
+            action.id === "org.freedesktop.NetworkManager.network-control") {
+            mnm.log("NetOps " + subject.user + " modifying network: " + action.id);
+            return polkit.Result.AUTH_ADMIN_KEEP;
+        }
+    }
+    
+    // =========================================================================
+    // MNM SCOPE: MONITORING (Network)
+    // =========================================================================
+    
+    if (action.id === "io.mnm.scope.monitoring.network") {
+        // NetOps can monitor all network traffic/stats
+        return polkit.Result.YES;
+    }
+    
+    if (action.id === "io.mnm.scope.monitoring.connections") {
+        // NetOps can view active connections
+        return polkit.Result.YES;
+    }
+    
+    // =========================================================================
+    // MNM SCOPE: CONFIGURATION (Network)
+    // =========================================================================
+    
+    if (action.id === "io.mnm.scope.configuration.network") {
+        mnm.log("NetOps " + subject.user + " configuring network");
+        return polkit.Result.YES;
+    }
+    
+    if (action.id === "io.mnm.scope.configuration.dns") {
+        mnm.log("NetOps " + subject.user + " configuring DNS");
+        return polkit.Result.YES;
+    }
+    
+    if (action.id === "io.mnm.scope.configuration.firewall") {
+        mnm.log("NetOps " + subject.user + " configuring firewall");
+        return polkit.Result.YES;
+    }
+    
+    if (action.id === "io.mnm.scope.configuration.loadbalancer") {
+        mnm.log("NetOps " + subject.user + " configuring load balancer");
+        return polkit.Result.YES;
+    }
+    
+    // =========================================================================
+    // NETOPS SCRIPT EXECUTION
+    // =========================================================================
+    
+    if (action.id === "io.mnm.script.core.execute") {
+        var script = action.lookup("script");
+        
+        var allowedScripts = [
+            "network-status",
+            "firewall-status",
+            "dns-lookup",
+            "connection-list",
+            "port-check",
+            "backend-health",
+            "ssl-cert-check"
+        ];
+        
+        for (var i = 0; i < allowedScripts.length; i++) {
+            if (script === allowedScripts[i]) {
+                mnm.log("NetOps " + subject.user + " executing: " + script);
+                return polkit.Result.YES;
+            }
+        }
+    }
+    
+    return polkit.Result.NOT_HANDLED;
+});

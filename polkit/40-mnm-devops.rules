@@ -1,0 +1,164 @@
+// MnMs.io Polkit Rules - Developer Roles
+// File: /etc/polkit-1/rules.d/40-mnm-devops.rules
+//
+// AppDevs: Access to app code, environment, console logs
+
+polkit.addRule(function(action, subject) {
+    var mnm = polkit._mnm;
+    
+    // =========================================================================
+    // APPDEVS - Application Developers
+    // =========================================================================
+    
+    if (!mnm.hasRole(subject, "appdevs")) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    
+    var tenant = mnm.getTenant(subject.user);
+    var service = mnm.getService(subject.user);
+    
+    // -------------------------------------------------------------------------
+    // Scope: Monitoring
+    // -------------------------------------------------------------------------
+    
+    // View console/application logs (reflexive - own service)
+    if (action.id === "io.mnm.scope.monitoring.logs") {
+        var target = action.lookup("target");
+        
+        // Can view own service logs
+        if (!target || mnm.isOwnService(subject, target)) {
+            return polkit.Result.YES;
+        }
+        
+        // App-level devs (in tenant group) can view all tenant service logs
+        if (subject.isInGroup(tenant) && mnm.canManageTenantService(subject, target)) {
+            return polkit.Result.YES;
+        }
+        
+        return polkit.Result.NO;
+    }
+    
+    // View application metrics
+    if (action.id === "io.mnm.scope.monitoring.metrics") {
+        var target = action.lookup("target");
+        
+        if (!target || mnm.isOwnService(subject, target) ||
+            mnm.canManageTenantService(subject, target)) {
+            return polkit.Result.YES;
+        }
+        return polkit.Result.NO;
+    }
+    
+    // View environment variables (reflexive - own service)
+    if (action.id === "io.mnm.scope.monitoring.environment") {
+        var target = action.lookup("target");
+        
+        if (mnm.isOwnService(subject, target)) {
+            return polkit.Result.YES;
+        }
+        return polkit.Result.NO;
+    }
+    
+    // -------------------------------------------------------------------------
+    // Scope: Configuration
+    // -------------------------------------------------------------------------
+    
+    // Configure environment variables
+    if (action.id === "io.mnm.scope.configuration.environment") {
+        var target = action.lookup("target");
+        
+        // Can only configure own service environment
+        if (mnm.isOwnService(subject, target)) {
+            mnm.log("AppDevs " + subject.user + " configuring environment");
+            return polkit.Result.YES;
+        }
+        return polkit.Result.NO;
+    }
+    
+    // Configure application settings (in config/ directory)
+    if (action.id === "io.mnm.scope.configuration.app") {
+        var path = action.lookup("path");
+        
+        // Must be in own config directory
+        var configPath = "/srv/" + tenant + "/" + service + "/config/";
+        if (path && path.indexOf(configPath) === 0) {
+            mnm.log("AppDevs " + subject.user + " configuring: " + path);
+            return polkit.Result.YES;
+        }
+        return polkit.Result.NO;
+    }
+    
+    // -------------------------------------------------------------------------
+    // Scope: Provision (Limited)
+    // -------------------------------------------------------------------------
+    
+    // AppDevs can trigger deployments of their own service
+    if (action.id === "io.mnm.scope.provision.deploy") {
+        var target = action.lookup("target");
+        
+        if (mnm.isOwnService(subject, target)) {
+            mnm.log("AppDevs " + subject.user + " deploying: " + target);
+            return polkit.Result.YES;
+        }
+        return polkit.Result.NO;
+    }
+    
+    // -------------------------------------------------------------------------
+    // Scope: Change Data (Application data only)
+    // -------------------------------------------------------------------------
+    
+    // Upload to data directory
+    if (action.id === "io.mnm.scope.changedata.upload") {
+        var path = action.lookup("path");
+        
+        // Can write to own data/write directories
+        var dataPath = "/srv/" + tenant + "/" + service + "/data/";
+        var writePath = "/srv/" + tenant + "/" + service + "/write/";
+        
+        if (path && (path.indexOf(dataPath) === 0 || path.indexOf(writePath) === 0)) {
+            mnm.log("AppDevs " + subject.user + " uploading: " + path);
+            return polkit.Result.YES;
+        }
+        return polkit.Result.NO;
+    }
+    
+    // -------------------------------------------------------------------------
+    // Script Execution
+    // -------------------------------------------------------------------------
+    
+    if (action.id === "io.mnm.script.core.execute") {
+        var script = action.lookup("script");
+        
+        var allowedScripts = [
+            "app-logs",
+            "app-console",
+            "app-metrics",
+            "app-health",
+            "app-restart",
+            "app-deploy",
+            "env-list",
+            "env-set",
+            "config-validate"
+        ];
+        
+        for (var i = 0; i < allowedScripts.length; i++) {
+            if (script === allowedScripts[i]) {
+                return polkit.Result.YES;
+            }
+        }
+    }
+    
+    // Custom scripts in exec directory
+    if (action.id === "io.mnm.script.custom.execute") {
+        var scriptPath = action.lookup("path");
+        var execPath = "/srv/" + tenant + "/" + service + "/exec/";
+        
+        if (scriptPath && scriptPath.indexOf(execPath) === 0) {
+            mnm.log("AppDevs " + subject.user + " executing: " + scriptPath);
+            return polkit.Result.YES;
+        }
+        return polkit.Result.NO;
+    }
+    
+    return polkit.Result.NOT_HANDLED;
+});

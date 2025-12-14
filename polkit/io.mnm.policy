@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!--
+  MnMs.io Polkit Action Definitions
+  File: /usr/share/polkit-1/actions/io.mnm.policy
+  
+  This file defines all custom actions for the MnMs.io permission system.
+  Actions are organized by Scope (Monitoring, Configuration, Provision, ChangeData)
+-->
+<policyconfig>
+  <vendor>MnMs.io</vendor>
+  <vendor_url>https://mnms.io</vendor_url>
+  
+  <!-- ========================================================================
+       SCOPE: MONITORING
+       Reading logs, streams, and system state
+       ======================================================================== -->
+  
+  <action id="io.mnm.scope.monitoring.logs">
+    <description>View application logs</description>
+    <message>Authentication is required to view application logs</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.imply">org.freedesktop.journal.read</annotate>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.metrics">
+    <description>View application metrics</description>
+    <message>Authentication is required to view metrics</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.environment">
+    <description>View environment variables</description>
+    <message>Authentication is required to view environment variables</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.syslog">
+    <description>View system logs</description>
+    <message>Authentication is required to view system logs</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.authlog">
+    <description>View authentication logs</description>
+    <message>Authentication is required to view auth logs</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.security">
+    <description>View security events</description>
+    <message>Authentication is required to view security events</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.network">
+    <description>View network status and traffic</description>
+    <message>Authentication is required to view network information</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.querylog">
+    <description>View database query logs</description>
+    <message>Authentication is required to view query logs</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.schema">
+    <description>View database schema (information_schema)</description>
+    <message>Authentication is required to view database schema</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.catalog">
+    <description>View database catalog tables</description>
+    <message>Authentication is required to view catalog tables</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.data">
+    <description>View database data</description>
+    <message>Authentication is required to view database data</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.auditd">
+    <description>View auditd logs</description>
+    <message>Authentication is required to view audit logs</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.selinux">
+    <description>View SELinux status and denials</description>
+    <message>Authentication is required to view SELinux information</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.apparmor">
+    <description>View AppArmor profiles and status</description>
+    <message>Authentication is required to view AppArmor information</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.costs">
+    <description>View cost and billing data</description>
+    <message>Authentication is required to view cost data</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.monitoring.usage">
+    <description>View usage metrics for billing</description>
+    <message>Authentication is required to view usage data</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <!-- ========================================================================
+       SCOPE: CONFIGURATION
+       Modify settings and configurations
+       ======================================================================== -->
+  
+  <action id="io.mnm.scope.configuration.app">
+    <description>Configure application settings</description>
+    <message>Authentication is required to configure application</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.configuration.environment">
+    <description>Configure environment variables</description>
+    <message>Authentication is required to configure environment</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.configuration.network">
+    <description>Configure network settings</description>
+    <message>Authentication is required to configure network</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.configuration.firewall">
+    <description>Configure firewall rules</description>
+    <message>Authentication is required to configure firewall</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.configuration.dns">
+    <description>Configure DNS settings</description>
+    <message>Authentication is required to configure DNS</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.configuration.schema">
+    <description>Configure database schema</description>
+    <message>Authentication is required to configure database schema</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.configuration.routines">
+    <description>Deploy database stored routines</description>
+    <message>Authentication is required to deploy stored routines</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.configuration.security">
+    <description>Configure security settings</description>
+    <message>Authentication is required to configure security</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.configuration.auditd">
+    <description>Configure audit rules</description>
+    <message>Authentication is required to configure audit rules</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <!-- ========================================================================
+       SCOPE: PROVISION
+       Control plane APIs, deployment
+       ======================================================================== -->
+  
+  <action id="io.mnm.scope.provision.deploy">
+    <description>Deploy application or service</description>
+    <message>Authentication is required to deploy</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.provision.model">
+    <description>Deploy ML model</description>
+    <message>Authentication is required to deploy ML model</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.provision.service">
+    <description>Create or remove service</description>
+    <message>Authentication is required to provision service</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.provision.tenant">
+    <description>Create or remove tenant</description>
+    <message>Authentication is required to provision tenant</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <!-- ========================================================================
+       SCOPE: CHANGE DATA
+       Write, append, insert, update, delete operations
+       ======================================================================== -->
+  
+  <action id="io.mnm.scope.changedata.upload">
+    <description>Upload files to data directory</description>
+    <message>Authentication is required to upload files</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.changedata.database">
+    <description>Modify database data (INSERT, UPDATE, DELETE)</description>
+    <message>Authentication is required to modify database data</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.scope.changedata.trainingdata">
+    <description>Upload or modify ML training data</description>
+    <message>Authentication is required to modify training data</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <!-- ========================================================================
+       SCRIPT EXECUTION
+       OS, Core, and Custom scripts
+       ======================================================================== -->
+  
+  <action id="io.mnm.script.core.execute">
+    <description>Execute MnMs.io core script</description>
+    <message>Authentication is required to execute core script</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.script.custom.execute">
+    <description>Execute custom script</description>
+    <message>Authentication is required to execute custom script</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+  
+  <action id="io.mnm.script.os.execute">
+    <description>Execute OS command</description>
+    <message>Authentication is required to execute OS command</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+</policyconfig>

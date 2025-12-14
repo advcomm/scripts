@@ -1,0 +1,169 @@
+// MnMs.io Polkit Rules - SysOps Role
+// File: /etc/polkit-1/rules.d/10-mnm-sysops.rules
+//
+// SysOps have access to OS commands dealing with:
+// - User accounts (reflexive - own tenant only)
+// - File system permissions (reflexive - own paths only)
+// - System logs (reflexive - own service logs)
+// - Systemd service management (reflexive - own services)
+
+polkit.addRule(function(action, subject) {
+    var mnm = polkit._mnm;
+    
+    // Only applies to SysOps role
+    if (!mnm.hasRole(subject, "sysops")) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    
+    // =========================================================================
+    // SYSTEMD SERVICE MANAGEMENT
+    // =========================================================================
+    
+    if (action.id === "org.freedesktop.systemd1.manage-units") {
+        var unit = action.lookup("unit");
+        var verb = action.lookup("verb");
+        
+        // SysOps can manage their OWN service
+        if (mnm.isOwnService(subject, unit)) {
+            mnm.log("SysOps " + subject.user + " managing own service: " + unit);
+            return polkit.Result.YES;
+        }
+        
+        // App-level SysOps (in tenant group) can manage all tenant services
+        if (mnm.canManageTenantService(subject, unit)) {
+            mnm.log("SysOps " + subject.user + " managing tenant service: " + unit);
+            return polkit.Result.YES;
+        }
+        
+        return polkit.Result.NO;
+    }
+    
+    // =========================================================================
+    // SYSTEMD UNIT FILE RELOAD
+    // =========================================================================
+    
+    if (action.id === "org.freedesktop.systemd1.reload-daemon") {
+        // SysOps can reload systemd daemon (needed after Quadlet changes)
+        mnm.log("SysOps " + subject.user + " reloading systemd daemon");
+        return polkit.Result.YES;
+    }
+    
+    // =========================================================================
+    // JOURNALD LOG ACCESS (Scope: Monitoring)
+    // =========================================================================
+    
+    if (action.id === "org.freedesktop.journal.read") {
+        // SysOps can read journal logs
+        // Note: Further filtering by unit happens at journalctl level
+        mnm.log("SysOps " + subject.user + " reading journal");
+        return polkit.Result.YES;
+    }
+    
+    // =========================================================================
+    // MNM SCOPE: MONITORING
+    // =========================================================================
+    
+    if (mnm.isScope(action.id, "monitoring")) {
+        var target = action.lookup("target");
+        
+        // Can monitor own service
+        if (!target || mnm.isOwnService(subject, target) || 
+            mnm.canManageTenantService(subject, target)) {
+            return polkit.Result.YES;
+        }
+        
+        return polkit.Result.NO;
+    }
+    
+    // =========================================================================
+    // MNM SCOPE: CONFIGURATION
+    // =========================================================================
+    
+    if (mnm.isScope(action.id, "configuration")) {
+        var path = action.lookup("path");
+        
+        // Can configure own paths only
+        if (path && (mnm.isOwnPath(subject, path) || mnm.isTenantPath(subject, path))) {
+            mnm.log("SysOps " + subject.user + " configuring: " + path);
+            return polkit.Result.YES;
+        }
+        
+        return polkit.Result.NO;
+    }
+    
+    // =========================================================================
+    // MNM SCOPE: PROVISION
+    // =========================================================================
+    
+    if (mnm.isScope(action.id, "provision")) {
+        // SysOps cannot provision - that's Host/Agent level
+        return polkit.Result.NO;
+    }
+    
+    // =========================================================================
+    // MNM SCOPE: CHANGE_DATA
+    // =========================================================================
+    
+    if (mnm.isScope(action.id, "changedata")) {
+        var path = action.lookup("path");
+        
+        // Can change data in own paths (e.g., upload CSVs)
+        if (path && mnm.isOwnPath(subject, path)) {
+            mnm.log("SysOps " + subject.user + " changing data: " + path);
+            return polkit.Result.YES;
+        }
+        
+        return polkit.Result.NO;
+    }
+    
+    return polkit.Result.NOT_HANDLED;
+});
+
+// ============================================================================
+// SYSOPS: SCRIPT EXECUTION
+// ============================================================================
+
+polkit.addRule(function(action, subject) {
+    var mnm = polkit._mnm;
+    
+    if (!mnm.hasRole(subject, "sysops")) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    
+    // Allow executing MnM core scripts
+    if (action.id === "io.mnm.script.core.execute") {
+        var script = action.lookup("script");
+        
+        // Allowed core scripts for SysOps
+        var allowedScripts = [
+            "service-restart",
+            "service-status",
+            "logs-view",
+            "config-reload",
+            "health-check"
+        ];
+        
+        for (var i = 0; i < allowedScripts.length; i++) {
+            if (script === allowedScripts[i]) {
+                mnm.log("SysOps " + subject.user + " executing core script: " + script);
+                return polkit.Result.YES;
+            }
+        }
+        
+        return polkit.Result.NO;
+    }
+    
+    // Allow executing custom scripts in own directory
+    if (action.id === "io.mnm.script.custom.execute") {
+        var scriptPath = action.lookup("path");
+        
+        if (scriptPath && mnm.isOwnPath(subject, scriptPath)) {
+            mnm.log("SysOps " + subject.user + " executing custom script: " + scriptPath);
+            return polkit.Result.YES;
+        }
+        
+        return polkit.Result.NO;
+    }
+    
+    return polkit.Result.NOT_HANDLED;
+});

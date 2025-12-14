@@ -1,0 +1,234 @@
+// MnMs.io Polkit Rules - Derived Roles
+// File: /etc/polkit-1/rules.d/60-mnm-derived.rules
+//
+// MLOps: Training data access, model deployment
+// AIOps: Selected log access for Gen AI use cases
+// FinOps: Cost monitoring
+// BillOps: Usage-based billing inputs
+
+polkit.addRule(function(action, subject) {
+    var mnm = polkit._mnm;
+    var tenant = mnm.getTenant(subject.user);
+    
+    // =========================================================================
+    // MLOPS - Machine Learning Operations
+    // =========================================================================
+    
+    if (mnm.hasRole(subject, "mlops")) {
+        
+        // Access to training data (reflexive - own tenant)
+        if (action.id === "io.mnm.scope.monitoring.trainingdata") {
+            var path = action.lookup("path");
+            
+            if (!path || mnm.isTenantPath(subject, path)) {
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+        
+        // Upload training data
+        if (action.id === "io.mnm.scope.changedata.trainingdata") {
+            var path = action.lookup("path");
+            
+            if (path && mnm.isTenantPath(subject, path)) {
+                mnm.log("MLOps " + subject.user + " uploading training data: " + path);
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+        
+        // Deploy ML models
+        if (action.id === "io.mnm.scope.provision.model") {
+            var target = action.lookup("target");
+            
+            // Can deploy models to own tenant services
+            if (mnm.canManageTenantService(subject, target)) {
+                mnm.log("MLOps " + subject.user + " deploying model to: " + target);
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+        
+        // Model monitoring (inference logs, accuracy metrics)
+        if (action.id === "io.mnm.scope.monitoring.model") {
+            return polkit.Result.YES;
+        }
+        
+        // Allowed scripts
+        if (action.id === "io.mnm.script.core.execute") {
+            var script = action.lookup("script");
+            var allowedScripts = [
+                "model-deploy",
+                "model-rollback",
+                "model-status",
+                "training-status",
+                "dataset-validate",
+                "inference-logs"
+            ];
+            
+            for (var i = 0; i < allowedScripts.length; i++) {
+                if (script === allowedScripts[i]) {
+                    return polkit.Result.YES;
+                }
+            }
+        }
+    }
+    
+    // =========================================================================
+    // AIOPS - AI Operations (Log access for Gen AI)
+    // =========================================================================
+    
+    if (mnm.hasRole(subject, "aiops")) {
+        
+        // AIOps can read logs for AI processing
+        // This is typically combined with another role
+        if (action.id === "io.mnm.scope.monitoring.logs.ai") {
+            var target = action.lookup("target");
+            
+            // Can access tenant logs for AI processing
+            if (!target || mnm.canManageTenantService(subject, target)) {
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+        
+        // Access to structured log exports
+        if (action.id === "io.mnm.scope.monitoring.logs.export") {
+            mnm.log("AIOps " + subject.user + " exporting logs for AI");
+            return polkit.Result.YES;
+        }
+        
+        // Access to anonymized data for training
+        if (action.id === "io.mnm.scope.monitoring.data.anonymized") {
+            return polkit.Result.YES;
+        }
+        
+        // Allowed scripts
+        if (action.id === "io.mnm.script.core.execute") {
+            var script = action.lookup("script");
+            var allowedScripts = [
+                "logs-export",
+                "logs-anonymize",
+                "ai-context-gather",
+                "embedding-generate"
+            ];
+            
+            for (var i = 0; i < allowedScripts.length; i++) {
+                if (script === allowedScripts[i]) {
+                    return polkit.Result.YES;
+                }
+            }
+        }
+    }
+    
+    // =========================================================================
+    // FINOPS - Financial Operations
+    // =========================================================================
+    
+    if (mnm.hasRole(subject, "finops")) {
+        
+        // Access to cost data
+        if (action.id === "io.mnm.scope.monitoring.costs") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to bandwidth usage
+        if (action.id === "io.mnm.scope.monitoring.bandwidth") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to storage usage
+        if (action.id === "io.mnm.scope.monitoring.storage") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to compute usage
+        if (action.id === "io.mnm.scope.monitoring.compute") {
+            return polkit.Result.YES;
+        }
+        
+        // Configure cost alerts
+        if (action.id === "io.mnm.scope.configuration.costalerts") {
+            mnm.log("FinOps " + subject.user + " configuring cost alerts");
+            return polkit.Result.YES;
+        }
+        
+        // FinOps is read-only for costs - cannot change data
+        if (mnm.isScope(action.id, "changedata")) {
+            return polkit.Result.NO;
+        }
+        
+        // Allowed scripts
+        if (action.id === "io.mnm.script.core.execute") {
+            var script = action.lookup("script");
+            var allowedScripts = [
+                "cost-report",
+                "bandwidth-report",
+                "storage-report",
+                "compute-report",
+                "cost-forecast",
+                "budget-check"
+            ];
+            
+            for (var i = 0; i < allowedScripts.length; i++) {
+                if (script === allowedScripts[i]) {
+                    return polkit.Result.YES;
+                }
+            }
+        }
+    }
+    
+    // =========================================================================
+    // BILLOPS - Billing Operations
+    // =========================================================================
+    
+    if (mnm.hasRole(subject, "billops")) {
+        
+        // Access to usage metrics per app/tenant
+        if (action.id === "io.mnm.scope.monitoring.usage") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to per-tenant bandwidth
+        if (action.id === "io.mnm.scope.monitoring.usage.bandwidth") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to per-tenant storage
+        if (action.id === "io.mnm.scope.monitoring.usage.storage") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to API call counts
+        if (action.id === "io.mnm.scope.monitoring.usage.apicalls") {
+            return polkit.Result.YES;
+        }
+        
+        // Generate billing reports
+        if (action.id === "io.mnm.scope.configuration.billing") {
+            mnm.log("BillOps " + subject.user + " generating billing report");
+            return polkit.Result.YES;
+        }
+        
+        // Allowed scripts
+        if (action.id === "io.mnm.script.core.execute") {
+            var script = action.lookup("script");
+            var allowedScripts = [
+                "usage-report",
+                "billing-generate",
+                "tenant-usage",
+                "api-metering",
+                "storage-metering",
+                "bandwidth-metering"
+            ];
+            
+            for (var i = 0; i < allowedScripts.length; i++) {
+                if (script === allowedScripts[i]) {
+                    return polkit.Result.YES;
+                }
+            }
+        }
+    }
+    
+    return polkit.Result.NOT_HANDLED;
+});

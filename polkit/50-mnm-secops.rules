@@ -1,0 +1,162 @@
+// MnMs.io Polkit Rules - Security Roles
+// File: /etc/polkit-1/rules.d/50-mnm-secops.rules
+//
+// SecOps: Access to SysLog, journald
+// ChkOps: Audit layers (auditd, SELinux, AppArmor, eBPF)
+
+polkit.addRule(function(action, subject) {
+    var mnm = polkit._mnm;
+    
+    // =========================================================================
+    // SECOPS - Security Operations
+    // =========================================================================
+    
+    if (mnm.hasRole(subject, "secops")) {
+        
+        // Full access to journald
+        if (action.id === "org.freedesktop.journal.read") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to system logs
+        if (action.id === "io.mnm.scope.monitoring.syslog") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to auth logs
+        if (action.id === "io.mnm.scope.monitoring.authlog") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to security events
+        if (action.id === "io.mnm.scope.monitoring.security") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to failed login attempts
+        if (action.id === "io.mnm.scope.monitoring.failedlogins") {
+            return polkit.Result.YES;
+        }
+        
+        // Configuration of security settings (requires confirmation)
+        if (action.id === "io.mnm.scope.configuration.security") {
+            mnm.log("SecOps " + subject.user + " configuring security");
+            return polkit.Result.AUTH_ADMIN_KEEP;
+        }
+        
+        // Allowed scripts for SecOps
+        if (action.id === "io.mnm.script.core.execute") {
+            var script = action.lookup("script");
+            var allowedScripts = [
+                "security-scan",
+                "failed-logins",
+                "auth-log",
+                "syslog-tail",
+                "journal-security",
+                "user-audit",
+                "permission-audit",
+                "open-ports",
+                "active-connections"
+            ];
+            
+            for (var i = 0; i < allowedScripts.length; i++) {
+                if (script === allowedScripts[i]) {
+                    return polkit.Result.YES;
+                }
+            }
+        }
+    }
+    
+    // =========================================================================
+    // CHKOPS - Audit/Compliance Operations
+    // =========================================================================
+    
+    if (mnm.hasRole(subject, "chkops")) {
+        
+        // -------------------------------------------------------------------------
+        // Auditd Access
+        // -------------------------------------------------------------------------
+        
+        if (action.id === "io.mnm.scope.monitoring.auditd") {
+            return polkit.Result.YES;
+        }
+        
+        // Read audit rules
+        if (action.id === "io.mnm.scope.monitoring.auditrules") {
+            return polkit.Result.YES;
+        }
+        
+        // Configure audit rules (requires admin confirmation)
+        if (action.id === "io.mnm.scope.configuration.auditd") {
+            mnm.log("ChkOps " + subject.user + " configuring auditd");
+            return polkit.Result.AUTH_ADMIN_KEEP;
+        }
+        
+        // -------------------------------------------------------------------------
+        // SELinux Access
+        // -------------------------------------------------------------------------
+        
+        if (action.id === "io.mnm.scope.monitoring.selinux") {
+            return polkit.Result.YES;
+        }
+        
+        // View SELinux denials/AVC messages
+        if (action.id === "io.mnm.scope.monitoring.selinux.avc") {
+            return polkit.Result.YES;
+        }
+        
+        // -------------------------------------------------------------------------
+        // AppArmor Access
+        // -------------------------------------------------------------------------
+        
+        if (action.id === "io.mnm.scope.monitoring.apparmor") {
+            return polkit.Result.YES;
+        }
+        
+        // View AppArmor profiles and denials
+        if (action.id === "io.mnm.scope.monitoring.apparmor.profiles") {
+            return polkit.Result.YES;
+        }
+        
+        // -------------------------------------------------------------------------
+        // eBPF Monitoring
+        // -------------------------------------------------------------------------
+        
+        if (action.id === "io.mnm.scope.monitoring.ebpf") {
+            return polkit.Result.YES;
+        }
+        
+        // -------------------------------------------------------------------------
+        // Allowed Scripts for ChkOps
+        // -------------------------------------------------------------------------
+        
+        if (action.id === "io.mnm.script.core.execute") {
+            var script = action.lookup("script");
+            var allowedScripts = [
+                "audit-log",
+                "audit-rules",
+                "selinux-status",
+                "selinux-denials",
+                "apparmor-status",
+                "apparmor-profiles",
+                "compliance-check",
+                "cis-benchmark",
+                "file-integrity"
+            ];
+            
+            for (var i = 0; i < allowedScripts.length; i++) {
+                if (script === allowedScripts[i]) {
+                    return polkit.Result.YES;
+                }
+            }
+        }
+        
+        // ChkOps is read-only for audit - cannot change data
+        if (mnm.isScope(action.id, "changedata")) {
+            mnm.log("ChkOps " + subject.user + " DENIED change data");
+            return polkit.Result.NO;
+        }
+    }
+    
+    return polkit.Result.NOT_HANDLED;
+});

@@ -1,0 +1,163 @@
+// MnMs.io Polkit Rules - Base Configuration
+// File: /etc/polkit-1/rules.d/00-mnm-base.rules
+//
+// This file provides helper functions and base rules for the MnMs.io
+// permission system. It implements reflexive attribute checking.
+
+polkit.addRule(function(action, subject) {
+    // Root and mnm-agent always have full access
+    if (subject.user === "root") {
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NOT_HANDLED;
+});
+
+// ============================================================================
+// HELPER FUNCTIONS - Used by other rule files
+// ============================================================================
+
+// Store helpers in global polkit object for reuse
+polkit._mnm = {
+    
+    // -------------------------------------------------------------------------
+    // Role Checking (checks group membership)
+    // -------------------------------------------------------------------------
+    
+    hasRole: function(subject, role) {
+        // Roles are implemented as OS groups with 'mnm-' prefix
+        return subject.isInGroup("mnm-" + role.toLowerCase());
+    },
+    
+    hasAnyRole: function(subject, roles) {
+        for (var i = 0; i < roles.length; i++) {
+            if (this.hasRole(subject, roles[i])) {
+                return true;
+            }
+        }
+        return false;
+    },
+    
+    // -------------------------------------------------------------------------
+    // Attribute Checking (reflexive - based on username patterns)
+    // -------------------------------------------------------------------------
+    
+    // Extract tenant from username (e.g., "xdoc_api" → "xdoc")
+    getTenant: function(user) {
+        var parts = user.split("_");
+        return parts.length > 1 ? parts[0] : null;
+    },
+    
+    // Extract service/app name from username (e.g., "xdoc_api" → "api")
+    getService: function(user) {
+        var parts = user.split("_");
+        return parts.length > 1 ? parts.slice(1).join("_") : null;
+    },
+    
+    // Convert username to expected systemd service name
+    // "xdoc_api" → "xdoc-api.service"
+    getOwnServiceUnit: function(user) {
+        return user.replace(/_/g, "-") + ".service";
+    },
+    
+    // Check if user can access a specific tenant (reflexive)
+    canAccessTenant: function(subject, targetTenant) {
+        var userTenant = this.getTenant(subject.user);
+        
+        // User belongs to this tenant
+        if (userTenant === targetTenant) {
+            return true;
+        }
+        
+        // User is in the tenant group (App-level DevOps)
+        if (subject.isInGroup(targetTenant)) {
+            return true;
+        }
+        
+        return false;
+    },
+    
+    // Check if this is user's OWN service (reflexive)
+    isOwnService: function(subject, unit) {
+        var ownUnit = this.getOwnServiceUnit(subject.user);
+        return unit === ownUnit;
+    },
+    
+    // Check if user can manage any service in their tenant
+    canManageTenantService: function(subject, unit) {
+        var userTenant = this.getTenant(subject.user);
+        if (!userTenant) return false;
+        
+        // Service unit should start with tenant name
+        // e.g., user "xdoc_devops" can manage "xdoc-api.service", "xdoc-worker.service"
+        var tenantPrefix = userTenant + "-";
+        return unit.indexOf(tenantPrefix) === 0;
+    },
+    
+    // -------------------------------------------------------------------------
+    // Scope Checking (from action ID)
+    // -------------------------------------------------------------------------
+    
+    // Extract scope from action ID
+    // "io.mnm.scope.monitoring.logs" → "monitoring"
+    getScope: function(actionId) {
+        if (actionId.indexOf("io.mnm.scope.") !== 0) {
+            return null;
+        }
+        var parts = actionId.split(".");
+        return parts.length > 3 ? parts[3] : null;
+    },
+    
+    // Check if action is a specific scope
+    isScope: function(actionId, scope) {
+        return this.getScope(actionId) === scope.toLowerCase();
+    },
+    
+    // -------------------------------------------------------------------------
+    // Path Checking (for filesystem operations)
+    // -------------------------------------------------------------------------
+    
+    // Check if path is within user's allowed directory
+    isOwnPath: function(subject, path) {
+        var tenant = this.getTenant(subject.user);
+        var service = this.getService(subject.user);
+        
+        if (!tenant || !service) return false;
+        
+        // Service user can only access /srv/<tenant>/<service>/
+        var allowedPath = "/srv/" + tenant + "/" + service + "/";
+        return path.indexOf(allowedPath) === 0;
+    },
+    
+    // Check if path is within tenant's directory (for App-level users)
+    isTenantPath: function(subject, path) {
+        var tenant = this.getTenant(subject.user);
+        if (!tenant) return false;
+        
+        var tenantPath = "/srv/" + tenant + "/";
+        return path.indexOf(tenantPath) === 0;
+    },
+    
+    // -------------------------------------------------------------------------
+    // Logging (for audit trail)
+    // -------------------------------------------------------------------------
+    
+    log: function(message) {
+        polkit.log("[MnM] " + message);
+    },
+    
+    logAccess: function(action, subject, result) {
+        this.log(subject.user + " -> " + action.id + " = " + result);
+    }
+};
+
+// ============================================================================
+// BASE RULES
+// ============================================================================
+
+// Log all MnM-related actions for audit
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("io.mnm.") === 0) {
+        polkit._mnm.log("Action: " + action.id + ", User: " + subject.user);
+    }
+    return polkit.Result.NOT_HANDLED;
+});

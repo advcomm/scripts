@@ -1,0 +1,193 @@
+// MnMs.io Polkit Rules - Database Roles
+// File: /etc/polkit-1/rules.d/30-mnm-dbops.rules
+//
+// DBDevs: Access to stored routines code, query logs
+// DBAOps: Access to information_schema, catalog tables (no data)
+// DataOps: Access to all data in databases
+
+polkit.addRule(function(action, subject) {
+    var mnm = polkit._mnm;
+    
+    // =========================================================================
+    // DBDEVS - Database Developers
+    // =========================================================================
+    
+    if (mnm.hasRole(subject, "dbdevs")) {
+        
+        // Access to query logs
+        if (action.id === "io.mnm.scope.monitoring.querylog") {
+            var database = action.lookup("database");
+            var tenant = mnm.getTenant(subject.user);
+            
+            // Can only view query logs for own tenant's databases
+            if (database && database.indexOf(tenant) === 0) {
+                mnm.log("DBDevs " + subject.user + " viewing query log: " + database);
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+        
+        // Access to stored routines (functions, procedures)
+        if (action.id === "io.mnm.scope.monitoring.routines") {
+            var database = action.lookup("database");
+            var tenant = mnm.getTenant(subject.user);
+            
+            if (database && database.indexOf(tenant) === 0) {
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+        
+        // Configuration of database code (deploy stored procedures)
+        if (action.id === "io.mnm.scope.configuration.routines") {
+            var database = action.lookup("database");
+            var tenant = mnm.getTenant(subject.user);
+            
+            if (database && database.indexOf(tenant) === 0) {
+                mnm.log("DBDevs " + subject.user + " deploying routines: " + database);
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+        
+        // Allowed scripts for DBDevs
+        if (action.id === "io.mnm.script.core.execute") {
+            var script = action.lookup("script");
+            var allowedScripts = [
+                "show-query-log",
+                "show-slow-queries",
+                "list-routines",
+                "deploy-routines",
+                "explain-query"
+            ];
+            
+            for (var i = 0; i < allowedScripts.length; i++) {
+                if (script === allowedScripts[i]) {
+                    return polkit.Result.YES;
+                }
+            }
+        }
+    }
+    
+    // =========================================================================
+    // DBAOPS - Database Administrators (Schema only, no data)
+    // =========================================================================
+    
+    if (mnm.hasRole(subject, "dbaops")) {
+        
+        // Access to information_schema
+        if (action.id === "io.mnm.scope.monitoring.schema") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to catalog tables
+        if (action.id === "io.mnm.scope.monitoring.catalog") {
+            return polkit.Result.YES;
+        }
+        
+        // Access to database statistics (pg_stat_*)
+        if (action.id === "io.mnm.scope.monitoring.dbstats") {
+            return polkit.Result.YES;
+        }
+        
+        // Configuration of database structure
+        if (action.id === "io.mnm.scope.configuration.schema") {
+            var database = action.lookup("database");
+            var tenant = mnm.getTenant(subject.user);
+            
+            // Can only configure schema for own tenant's databases
+            if (database && database.indexOf(tenant) === 0) {
+                mnm.log("DBAOps " + subject.user + " modifying schema: " + database);
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+        
+        // DBAOps explicitly CANNOT access actual data
+        if (action.id === "io.mnm.scope.monitoring.data" ||
+            action.id === "io.mnm.scope.changedata.database") {
+            mnm.log("DBAOps " + subject.user + " DENIED data access");
+            return polkit.Result.NO;
+        }
+        
+        // Allowed scripts for DBAOps
+        if (action.id === "io.mnm.script.core.execute") {
+            var script = action.lookup("script");
+            var allowedScripts = [
+                "show-tables",
+                "show-indexes",
+                "show-constraints",
+                "analyze-table",
+                "vacuum-table",
+                "show-locks",
+                "show-connections",
+                "kill-connection"
+            ];
+            
+            for (var i = 0; i < allowedScripts.length; i++) {
+                if (script === allowedScripts[i]) {
+                    return polkit.Result.YES;
+                }
+            }
+        }
+    }
+    
+    // =========================================================================
+    // DATAOPS - Data Operations (full data access)
+    // =========================================================================
+    
+    if (mnm.hasRole(subject, "dataops")) {
+        
+        // Full data monitoring
+        if (action.id === "io.mnm.scope.monitoring.data") {
+            var database = action.lookup("database");
+            var tenant = mnm.getTenant(subject.user);
+            
+            // Only for own tenant's databases
+            if (!database || database.indexOf(tenant) === 0) {
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+        
+        // Change data in databases
+        if (action.id === "io.mnm.scope.changedata.database") {
+            var database = action.lookup("database");
+            var tenant = mnm.getTenant(subject.user);
+            
+            if (database && database.indexOf(tenant) === 0) {
+                mnm.log("DataOps " + subject.user + " modifying data: " + database);
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+        
+        // DataOps inherits DBAOps schema viewing
+        if (action.id === "io.mnm.scope.monitoring.schema" ||
+            action.id === "io.mnm.scope.monitoring.catalog") {
+            return polkit.Result.YES;
+        }
+        
+        // Allowed scripts for DataOps
+        if (action.id === "io.mnm.script.core.execute") {
+            var script = action.lookup("script");
+            var allowedScripts = [
+                "export-data",
+                "import-data",
+                "backup-table",
+                "restore-table",
+                "query-execute",
+                "bulk-insert",
+                "data-migration"
+            ];
+            
+            for (var i = 0; i < allowedScripts.length; i++) {
+                if (script === allowedScripts[i]) {
+                    return polkit.Result.YES;
+                }
+            }
+        }
+    }
+    
+    return polkit.Result.NOT_HANDLED;
+});
